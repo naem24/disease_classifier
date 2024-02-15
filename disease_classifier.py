@@ -64,12 +64,17 @@ st.set_page_config(
 
 # hide the part of the code, as this is just for adding some custom CSS styling but not a part of the main idea 
 hide_streamlit_style = """
-	<style>
-    #MainMenu {visibility: hidden;}
-	footer {visibility: hidden;}
-    div.block-container{padding-top:2rem;}
+    <style>
+        .reportview-container {
+            margin-top: -2em;
+        }
+        #MainMenu {visibility: hidden;}
+        .stDeployButton {display:none;}
+        footer {visibility: hidden;}
+        #stDecoration {display:none;}
     </style>
 """
+
 # hide the CSS code from the screen as they are embedded in markdown text. 
 # Also, allow streamlit to unsafely process as HTML
 st.markdown(hide_streamlit_style, unsafe_allow_html=True) 
