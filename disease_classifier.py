@@ -64,14 +64,10 @@ st.set_page_config(
 
 # hide the part of the code, as this is just for adding some custom CSS styling but not a part of the main idea 
 hide_streamlit_style = """
-    <style>
-        .reportview-container {
-            margin-top: -2em;
-        }
-        #MainMenu {visibility: hidden;}
-        .stDeployButton {display:none;}
-        footer {visibility: hidden;}
-        #stDecoration {display:none;}
+	<style>
+    #MainMenu {visibility: hidden;}
+	footer {visibility: hidden;}
+    div.block-container{padding-top:2rem;}
     </style>
 """
 
