@@ -55,7 +55,6 @@ pickleshare==0.7.5
 Pillow==9.5.0
 pkgutil-resolve-name==1.3.10
 prompt-toolkit==3.0.43
-protobuf==3.20.3
 psutil==5.9.8
 pyarrow==12.0.1
 pyasn1==0.5.1
