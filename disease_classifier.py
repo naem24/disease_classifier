@@ -154,7 +154,6 @@ with st.columns([0.10, 0.80, 0.10])[1]:
                             st.success("The person is healthy")
                         else:
                             st.warning("The person has: **" + pred_class + "**")
-                            st.write(pred_df)
     elif selected_option == "Heart Disease":
         st.header("HEART DISEASE CLASSIFIER")
         st.markdown("<b><p>Coming soon...</p></b>", unsafe_allow_html=True)
