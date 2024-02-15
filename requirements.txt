@@ -1,4 +1,3 @@
-os
 tensorflow
 numpy
 pickle
