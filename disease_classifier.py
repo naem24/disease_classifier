@@ -178,8 +178,8 @@ with st.columns([0.10, 0.80, 0.10])[1]:
 
                     corr_message = """
                     Clinical correlation is strongly recommended to determine the significance of the radiology findings.
-                    This will allow your doctor to make an accurate using all available information to them - medical history,
-                    physical exam, laboratory testing, other imaging studies, etc.
+                    This will allow your doctor to make an accurate diagnosis using all available information  - your medical history,
+                    physical examination, laboratory tests or other imaging studies.
                     """
                     
                     st.warning("Model predicts a higher probability of **" + pred_class + "**")
