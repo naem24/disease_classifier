@@ -8,6 +8,7 @@ import pickle
 import pandas as pd
 import streamlit as st
 from streamlit_option_menu import option_menu
+import matplotlib.pyplot as plt
 
 # START UTILS FUNCTION
 # load model, set cache to prevent reloading
@@ -127,6 +128,7 @@ with st.columns([0.10, 0.80, 0.10])[1]:
 
         # This will be called once as we have the decorator before the load_model function
         with st.spinner('Loading Model....'):
+            # Load both the models
             cdc_model, xray_classifier_model = load_models()
 
             # Add the file uploader widget
@@ -148,41 +150,44 @@ with st.columns([0.10, 0.80, 0.10])[1]:
                     st.warning("Please upload a valid x-ray image and try again")
                     st.stop()
 
-                col1, col2, col3 = st.columns((0.20, 0.80, 0.20))
+                col1, col2 = st.columns((0.5, 0.50))
 
-                with col2:
+                with col1:
                     # Load the non-normalized image here (image without mean and std adjustments)     
                     x = image.load_img(img_file_path, target_size=(320, 320))
                     st.image(x, use_column_width=True)
-                        
-                    if st.button("Predict"):
-                        # Read the picked variables to get the mean and std for normalization
-                        with open('saved_model/cdc_mean_std.pkl', 'rb') as ms_file:
-                            cdc_mean_std = pickle.load(ms_file)
+                
+                with col2:
+                    # Read the picked variables to get the mean and std for normalization
+                    with open('saved_model/cdc_mean_std.pkl', 'rb') as ms_file:
+                        cdc_mean_std = pickle.load(ms_file)
 
-                        mean = cdc_mean_std["saved_mean"]
-                        std = cdc_mean_std["saved_std"]
-                        
-                        # Load the image saved in the app folder earlier
-                        x = image.load_img(img_file_path, target_size=(320, 320))
-                        
-                        # Normalize the image before sending it to predict to the model 
-                        x -= mean
-                        x /= std
-                        processed_image = np.expand_dims(x, axis=0)
-                        preds = cdc_model.predict(processed_image)
-                        pred_class = labels[np.argmax(preds)]
-                        pred_df = pd.DataFrame(preds, columns = labels)
+                    mean = cdc_mean_std["saved_mean"]
+                    std = cdc_mean_std["saved_std"]
+                    
+                    # Load the image saved in the app folder earlier
+                    x = image.load_img(img_file_path, target_size=(320, 320))
+                    
+                    # Normalize the image before sending it to predict to the model 
+                    x -= mean
+                    x /= std
+                    processed_image = np.expand_dims(x, axis=0)
+                    preds = cdc_model.predict(processed_image)
+                    pred_class = labels[np.argmax(preds)]
+                    pred_df = pd.DataFrame(preds, columns = labels)
 
-                        # Find the largest value in the row
-                        max_pred_value = pred_df.iloc[0, :].max()
-                        
-                        # For now, if the pred value dips below 0.5 (which is observed in most normal cases),
-                        # the person can be marked healthy
-                        if max_pred_value < 0.5:
-                            st.success("The person is healthy")
-                        else:
-                            st.warning("The person has: **" + pred_class + "**")
+                    corr_message = """
+                    Clinical correlation is strongly recommended to determine the significance of the radiology findings.
+                    Clinical correlation is important because it will allow your doctor to make an accurate using all 
+                    available information to them - medical history, physical exam, laboratory testing, other imaging studies, etc.
+                    """
+                    
+                    st.warning("Model predicts a higher probability of **" + pred_class + "**")
+                    st.write(corr_message)
+                    
+                    # Find the largest value in the row
+                    # Commented for now but can be useful info for later
+                    #max_pred_value = pred_df.iloc[0, :].max()
     elif selected_option == "Heart Disease":
         st.header("HEART DISEASE CLASSIFIER")
         st.markdown("<b><p>Coming soon...</p></b>", unsafe_allow_html=True)
