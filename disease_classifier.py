@@ -1,6 +1,7 @@
 import os
 from keras import backend as K
-from keras.models import model_from_json
+from keras.models import model_from_json, load_model
+from tensorflow.keras.preprocessing.image import img_to_array
 import keras.utils as image
 import numpy as np
 import pickle
@@ -14,15 +15,15 @@ from streamlit_option_menu import option_menu
 # cache_resource is used to catche anything which CANNOT be stored in a database (ML models, DB connections)
 # https://docs.streamlit.io/library/advanced-features/caching
 @st.cache_resource
-def load_model():
+def load_models():
     # load model json
     json_file = open('saved_model/cdc_model.json', 'r')
-    loaded_model_json = json_file.read()
+    loaded_cdc_model_json = json_file.read()
     json_file.close()
-    loaded_model = model_from_json(loaded_model_json)
+    loaded_cdc_model = model_from_json(loaded_cdc_model_json)
     
     # load weights into new model
-    loaded_model.load_weights('saved_model/cdc_model_weights.h5')
+    loaded_cdc_model.load_weights('saved_model/cdc_model_weights.h5')
 
     # load the pickled pos and neg weight series    
     with open('saved_model/pos_weights.pkl', 'rb') as pw_file:
@@ -33,9 +34,12 @@ def load_model():
 
     # It is important to compile the loaded model before it is used. 
     # This is so that predictions made using the model can use the appropriate efficient computation from the Keras backend.
-    loaded_model.compile(optimizer='adam', loss=get_weighted_loss(neg_weights, pos_weights))
+    loaded_cdc_model.compile(optimizer='adam', loss=get_weighted_loss(neg_weights, pos_weights))
 
-    return loaded_model
+    # Now, load the xray classifier model too
+    loaded_xray_classifier_model = load_model('saved_model/final_xray_classifier_model.h5')
+
+    return loaded_cdc_model, loaded_xray_classifier_model
 
 def get_weighted_loss(neg_weights, pos_weights, epsilon=1e-7):
     def weighted_loss(y_true, y_pred):
@@ -49,6 +53,26 @@ def get_weighted_loss(neg_weights, pos_weights, epsilon=1e-7):
         loss = K.sum(loss)
         return loss
     return weighted_loss
+
+def IsImageAnXRay(imgfilepath, xray_classifier_model):
+    # The VGG16 model was trained on a specific ImageNet challenge dataset. As such, it is configured to expected input images 
+    # to have the shape 224×224 pixels. We will use this as the target size when loading photos from our dataset.
+    img = image.load_img(img_file_path,  target_size=(224, 224), grayscale=True)
+    img = img_to_array(img)
+    img = np.expand_dims(img, axis=0)
+    img = img.astype('float32')
+    
+    # Center pixel data based on values derived from ImageNet training dataset
+    img = img - [123.68, 116.779, 103.939]
+    
+    result = xray_classifier_model.predict(img)
+    result = result[0].astype('int')
+
+    # Ternary operation to check on both the classes
+    model_answer = False if result <= 0 else True
+    
+    return model_answer
+
 # END UTILS FUNCTION 
 
 # hide deprication warnings which directly don't affect the working of the application
@@ -68,6 +92,7 @@ hide_streamlit_style = """
     #MainMenu {visibility: hidden;}
 	footer {visibility: hidden;}
     div.block-container{padding-top:2rem;}
+    div.stButton {text-align:center;}
     </style>
 """
 
@@ -102,30 +127,34 @@ with st.columns([0.10, 0.80, 0.10])[1]:
 
         # This will be called once as we have the decorator before the load_model function
         with st.spinner('Loading Model....'):
-            model = load_model()
+            cdc_model, xray_classifier_model = load_models()
 
             # Add the file uploader widget
-            uploaded_file = st.file_uploader('Upload an unaltered pediatric frontal chest xray, 8 MB or smaller, black/white image', type=['png','jpg'])
+            uploaded_file = st.file_uploader('Upload an unaltered frontal chest xray, 8 MB or smaller, black/white image', type=['png','jpg'])
 
             # Add three columns with only second col used to center the content    
             if uploaded_file is None:
                 st.text("Please upload an image file")
             else:
-                col1, col2 = st.columns(2, gap="small")
+                # https://discuss.streamlit.io/t/file-uploader-file-to-opencv-imread/8479/2
+                # file_uploader does not store the uploaded file on the webserver but keeps it in memory. 
+                # It returns a ‘stream’ class variable to access it
+                img_file_path = os.path.join("data/uploaded_images/", uploaded_file.name)
+                with open(img_file_path, "wb") as user_file:
+                        user_file.write(uploaded_file.read())
 
-                with col1:
-                    # https://discuss.streamlit.io/t/file-uploader-file-to-opencv-imread/8479/2
-                    # file_uploader does not store the uploaded file on the webserver but keeps it in memory. 
-                    # It returns a ‘stream’ class variable to access it
-                    img_file_path = os.path.join("data/uploaded_images/", uploaded_file.name)
-                    with open(img_file_path, "wb") as user_file:
-                            user_file.write(uploaded_file.read())
-                    
+                # Validate the uploaded image and check if its an xray or not
+                if IsImageAnXRay(img_file_path, xray_classifier_model) == False:
+                    st.warning("Please upload a valid x-ray image and try again")
+                    st.stop()
+
+                col1, col2, col3 = st.columns((0.20, 0.80, 0.20))
+
+                with col2:
                     # Load the non-normalized image here (image without mean and std adjustments)     
                     x = image.load_img(img_file_path, target_size=(320, 320))
-                    st.image(x)
-
-                with col2:    
+                    st.image(x, use_column_width=True)
+                        
                     if st.button("Predict"):
                         # Read the picked variables to get the mean and std for normalization
                         with open('saved_model/cdc_mean_std.pkl', 'rb') as ms_file:
@@ -141,12 +170,11 @@ with st.columns([0.10, 0.80, 0.10])[1]:
                         x -= mean
                         x /= std
                         processed_image = np.expand_dims(x, axis=0)
-                        preds = model.predict(processed_image)
+                        preds = cdc_model.predict(processed_image)
                         pred_class = labels[np.argmax(preds)]
                         pred_df = pd.DataFrame(preds, columns = labels)
 
                         # Find the largest value in the row
-                        # df.iloc[row_start:row_end, column_start:column_end]
                         max_pred_value = pred_df.iloc[0, :].max()
                         
                         # For now, if the pred value dips below 0.5 (which is observed in most normal cases),
