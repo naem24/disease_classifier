@@ -107,7 +107,7 @@ def model_predict(uploaded_file, model):
     data = np.array(csv_data)
     signals = []
     count = 1
-    peaks =  biosppy.signals.ecg.christov_segmenter(signal=data, sampling_rate = 200)[0]
+    peaks =  biosppy.signals.ecg.christov_segmenter(signal=data, sampling_rate = 2000)[0]
 
     st.write('No of peaks found: ' + str(len(peaks)))
     #st.stop()
@@ -132,8 +132,7 @@ def model_predict(uploaded_file, model):
         for spine in plt.gca().spines.values():
             spine.set_visible(False)
 
-        filename = 'data/uploaded_ecg_files/fig' + str(count)  + '.png'
-        #filename = 'data/uploaded_ecg_files/fig.png'
+        filename = 'data/uploaded_ecg_files/temp/fig.png'
         st.write(filename)
 
         fig.savefig(filename)
@@ -167,7 +166,7 @@ def model_predict(uploaded_file, model):
         data = {}
         data['result'+str(flag)] = str(result)
 
-        json_filename = 'data/uploaded_ecg_files/data.txt'
+        json_filename = 'data/uploaded_ecg_files/temp/data.txt'
         with open(json_filename, 'a+') as outfile:
             json.dump(data, outfile) 
         flag+=1 
@@ -523,7 +522,6 @@ with st.columns([0.10, 0.80, 0.10])[1]:
         st.markdown('''
         <b><p>This classifier analyzed an ECG and classifies them into seven categories - one being normal and the other six being
         one of the below arrhythmia beats:<br><br>
-        APC, NORMAL, LBB, PVC, PAB, RBB, VEB
         Atrial Premature Contraction (APC) beat, Left Bundle Branch Block (LBB) beat, Premature ventricular contraction (PVC) beat,
         Paced Beat (PAB), Right Bundle Branch Block (RBB) beat, Ventricular Escape Beat (VEB)<br><br>
         <i>This tool is for education purposes only and should not be used for clinical diagnosis of the above mentioned diseases.</i>
@@ -532,47 +530,49 @@ with st.columns([0.10, 0.80, 0.10])[1]:
         ''', unsafe_allow_html=True)
 
         # This will be called once as we have the decorator before the load_model function
-        #with st.spinner('Loading Model....'):
-        # Load both the models
-        ecg_model = load_ecg_model()
+        with st.spinner('Loading Model....'):
+            # Load both the models
+            ecg_model = load_ecg_model()
 
-        # Add the file uploader widget
-        uploaded_file = st.file_uploader('Upload a single-lead ECG image file in png format', type=['png'])
+            # Add the file uploader widget
+            uploaded_file = st.file_uploader('Upload a single-lead ECG image file in png format', type=['png'])
 
-        # Add three columns with only second col used to center the content    
-        if uploaded_file is None:
-            st.text("Please upload a PNG file")
-        else:
-            # https://discuss.streamlit.io/t/file-uploader-file-to-opencv-imread/8479/2
-            # file_uploader does not store the uploaded file on the webserver but keeps it in memory. 
-            # It returns a ‘stream’ class variable to access it
-            img_file_path = os.path.join("data/uploaded_ecg_files/", uploaded_file.name)
-            with open(img_file_path, "wb") as user_file:
-                    user_file.write(uploaded_file.read())
+            # Add three columns with only second col used to center the content    
+            if uploaded_file is None:
+                st.text("Please upload a PNG file")
+            else:
+                # https://discuss.streamlit.io/t/file-uploader-file-to-opencv-imread/8479/2
+                # file_uploader does not store the uploaded file on the webserver but keeps it in memory. 
+                # It returns a ‘stream’ class variable to access it
+                img_file_path = os.path.join("data/uploaded_ecg_files/", uploaded_file.name)
+                with open(img_file_path, "wb") as user_file:
+                        user_file.write(uploaded_file.read())
 
-            col1, col2 = st.columns((0.5, 0.50))
+                col1, col2 = st.columns((0.5, 0.50))
 
-            with col1:
-                # We will now read an ECG image, convert it to a signal and then pass it ahead
-                # 1) Open the image using PIL
-                img = image.load_img(img_file_path)
-                img = img_to_array(img)
-                final_signal = convert_image_to_signal(img[:,:,:3])
-                
-                # 2 - Save the file to csv and then transpose it
-                # Saving the array to a CSV file
-                np.savetxt('data/uploaded_ecg_files/output.csv', final_signal, delimiter=',', header='ecg_signal', comments = '')
-                
-                model_ret = model_predict('data/uploaded_ecg_files/output.csv', ecg_model)
-                st.warning(model_ret)
+                with col1:
+                    # CODE FOR READING AN IMAGE
+                    # We will now read an ECG image, convert it to a signal and then pass it ahead
+                    # 1) Open the image using PIL
+                    img = image.load_img(img_file_path)
+                    img = img_to_array(img)
+                    final_signal = convert_image_to_signal(img[:,:,:3])
+                    
+                    # 2 - Save the file to csv and then transpose it
+                    # Saving the array to a CSV file
+                    np.savetxt('data/uploaded_ecg_files/output.csv', final_signal, delimiter=',', header='ecg_signal', comments = '')
+                    
+                    model_ret = model_predict('data/uploaded_ecg_files/output.csv', ecg_model)
+                    st.warning(model_ret)
 
-                # CODE for reading a CSV directly
-                #model_ret = model_predict(img_file_path, ecg_model)
-                #st.warning(model_ret)
-                                    
-                # Find the largest value in the row
-                # Commented for now but can be useful info for later
-                #max_pred_value = pred_df.iloc[0, :].max()
+
+                    # CODE for reading a CSV directly
+                    #model_ret = model_predict(img_file_path, ecg_model)
+                    #st.warning(model_ret)
+                                        
+                    # Find the largest value in the row
+                    # Commented for now but can be useful info for later
+                    #max_pred_value = pred_df.iloc[0, :].max()
     elif selected_option == "Heart Disease":
         st.header("HEART DISEASE CLASSIFIER")
 
