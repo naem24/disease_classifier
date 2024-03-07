@@ -185,9 +185,12 @@ with st.columns([0.10, 0.80, 0.10])[1]:
                     st.warning("Model predicts a higher probability of **" + pred_class + "**")
                     st.write(corr_message)
                     
-                    # Find the largest value in the row
-                    # Commented for now but can be useful info for later
-                    #max_pred_value = pred_df.iloc[0, :].max()
+                    # Get the top three max values and convert to percent
+                    df = pred_df.iloc[0, :].nlargest(3).apply('{:.0%}'.format)
+                    
+                    # Convert to a frame to remove the first row which was showing a 0
+                    st.write(df.to_frame(name='Confidence'))
+                    
     elif selected_option == "Heart Disease":
         st.header("HEART DISEASE CLASSIFIER")
         st.markdown("<b><p>Coming soon...</p></b>", unsafe_allow_html=True)
